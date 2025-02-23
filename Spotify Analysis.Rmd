@@ -1,0 +1,81 @@
+---
+title: "Spotify Analysis"
+author: "Katherine Curro"
+date: "2023-04-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(plotly)
+```
+
+Question 1. Out of the top 100 songs on YouTube, Dynamite	by BTS, Boy With Luv by Halsey, lovely (with Khalid) by	Billie Eilish, Kill This Love	by BLACKPINK, DDU-DU DDU-DU	by BLACKPINK, and Believer by	Imagine Dragons have the most fan interaction. Out of the top 100 artists on YouTube, BTS, Billie Eilish, Lil Nas X, Ariana Grande, BLACKPINK, and Halsey have the most fan interaction.
+
+```{r}
+data <- read.csv('/Users/calicurro/Spotify_Youtube.csv')
+songinteraction <- data %>% arrange(-Views) %>% distinct(Url_youtube, .keep_all = TRUE) %>% head(100) %>% mutate(ratio = Likes/Views) %>% arrange(-ratio) %>% select(Track, Artist, ratio) %>% head()
+songinteraction 
+
+artistinteraction <- data %>% group_by(Artist) %>% summarize(Views = sum(Views), Likes = sum(Likes)) %>% arrange(-Views) %>% head(100) %>% mutate(ratio = Likes/Views) %>% arrange(-ratio) %>% select(Artist, ratio) %>% head()
+artistinteraction
+```
+
+Question 2. There is not a major difference in danceability, energy,speechiness, or instrumentalness between the top 100 songs and the average of all songs.
+
+```{r}
+top100 <- data %>% arrange(-Stream) %>% head(100) %>% summarize(across(where(is.numeric), mean, na.rm = TRUE)) %>% select(Danceability, Energy, Speechiness, Instrumentalness)
+
+all <- data %>% summarize(across(where(is.numeric), mean, na.rm = TRUE))%>% select(Danceability, Energy, Speechiness, Instrumentalness)
+
+together <- rbind(top100, all)
+
+difference = abs(together[1, ] - together[2, ])
+difference
+```
+
+Question 3. YouTube views are positively correlated to likes and comments. Spotify streams are positively correlated to likes but not comments. 
+
+```{r}
+ytdata <- data %>% select(Views,Likes,Comments) %>% pivot_longer(c(Likes,Comments), names_to = "InteractionType", values_to = "Interactions")
+
+ytplot <- ggplot(data = ytdata, aes(x = Views, y = Interactions)) + xlab("Views") + ylab("Interactions")+ geom_line(aes(color = InteractionType), alpha = 0.5) + geom_smooth(aes(color = InteractionType)) + ggtitle("YouTube Interaction Correlations")
+
+spotdata <- data %>% select(Stream,Likes,Comments) %>% pivot_longer(c(Likes,Comments), names_to = "InteractionType", values_to = "Interactions")
+
+spotplot <- ggplot(data = spotdata, aes(x = Stream, y = Interactions)) + xlab("Streams") + ylab("Interactions")+ geom_line(aes(color = InteractionType), alpha = 0.5) + geom_smooth(aes(color = InteractionType)) + ggtitle("Spotify Interaction Correlations")
+
+ggplotly(ytplot)
+ggplotly(spotplot)
+```
+
+Question 4. Songs with the most even ratio of streams on Spotify to views on YouTube are WeWe	 by Ruger, Believer by Imagine Dragons, VERY NICE by SEVENTEEN, Beautiful by Snoop Dogg, Feel Invincible by Skillet, and 21 Guns by	Green Day. 
+
+```{r}
+evenratio <- data %>% mutate(ratio = Views/(Views+Stream)) %>% mutate(balancedratio = abs(ratio - .5)) %>% arrange(balancedratio) %>% select(Track, Artist, balancedratio) %>% head()
+evenratio
+```
+
+Question 5. The top 100 songs make up a sizeable portion of views/streams. However on YouTube they make up slightly more.
+
+```{r}
+topspotstreams <- data %>% arrange(-Stream) %>% head(100) %>% summarize(across(where(is.numeric), sum, na.rm = TRUE))
+allspotstreams <- data %>% summarize(across(where(is.numeric), sum, na.rm = TRUE))
+
+datatogether <- rbind(topspotstreams, allspotstreams)
+
+streams <- datatogether %>% pull(Stream)
+pie(streams, main = "All Spotify Streams vs Streams of The Top 100 Songs",
+  labels = c("Top 100", "All Spotify Streams"))
+
+topytviews <- data %>% arrange(-Views) %>% head(100) %>% summarize(across(where(is.numeric), sum, na.rm = TRUE))
+allytviews <- data %>% summarize(across(where(is.numeric), sum, na.rm = TRUE))
+
+datatogether <- rbind(topytviews, allytviews)
+
+views <- datatogether %>% pull(Views)
+pie(views, main = "All Youtube Music Views vs Views of The Top 100 Songs",
+  labels = c("Top 100", "All YouTube Views"))
+```
+
